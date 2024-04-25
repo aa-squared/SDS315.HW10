@@ -1,0 +1,229 @@
+---
+title: "Homework 10 - SDS 315"
+author: "Aggie Angeles"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+# Libraries 
+library(mosaic)
+library(ggplot2)
+library(tidyverse)
+library(kableExtra)
+library(dbplyr)
+library(MatchIt)
+library(effectsize)
+library(moderndive)
+
+# Datasets 
+Redline <- read.csv("redlining.csv")
+Groceries <- read.csv("groceries.csv")
+
+```
+
+## *Problem 1: Redlining*
+
+```{r echo = FALSE}
+
+# Linear Regression Model: Minority and Policies
+ggplot(Redline, aes(x=minority, y=policies)) + 
+  geom_point() + 
+  geom_smooth(method='lm')
+
+```
+
+
+
+```{r echo = FALSE, mesage = FALSE, include = FALSE}
+
+# Linear Regression Model for Redlining FAIR Policies by minority ratio
+# adjusting for fire, age, and income
+lmFair = lm(policies ~ minority + fire + age + income, data = Redline)
+get_regression_table(lmFair)
+
+```
+
+Does the data imply that private insurance companies are denying insuracne to people on racial discriminatory grounds. Number of FAIR plans per 100 housing units in the given ZIP code. We used a multivariable linear regression model for the relationship between the number of FAIR plans per 100 housing units and the percentage of residents in that ZIP code who self-identified as an ethnic minority group in a given ZIP code. We adjusted our model to account for the age, income, and fire variables in our data set.  
+
+
+For a one-unit increase in the percentage of minority residents in a ZIP code, there is an estimated increase of 0.008 FAIR policies per 100 housing units, holding all other variables constant. We find that ZIP codes with a higher proportion of minority residents tend to have a slightly higher number of FAIR policies in comparison to ZIP codes with a lower proportion of minority residents. We find there to be a statisitcally significant relationship (pval = .006) indicating that there is a disparity since equality among policies is discounted by the p-value. [CI:(.003, .014)]
+
+
+
+
+## *Problem 2: Grocery store prices*
+
+
+### *Part A*
+ 
+*What kind of a price difference do we see across the different stores?*
+
+There is a gradient on the average price of a product dependent upon the store. There is no strong skew in prices, rather they vary from 2 tp 4 dollars. The least average price being Fiesta at around 2 dollars. The greatest average price being Whole Foods at about 4 dollars. This may indicate that there is some investigation needed to understand why such differences occur.
+```{r echo = FALSE, mesage = FALSE, include = FALSE}
+
+# Data Wrangling by Store to find Average Price 
+grocPrice <- Groceries %>% 
+  group_by(Store) %>% 
+  summarize(avgPrice = round(mean(Price), 2)) %>% 
+  arrange(avgPrice, Store)
+
+print(grocPrice)
+```
+
+
+```{r echo = FALSE}
+
+# Graph of Average Price Distribution by Store
+ggplot(grocPrice, aes(x = reorder(Store, avgPrice), y = avgPrice)) +
+  geom_col(fill="darkslategray4") +
+  coord_flip() +
+  labs(title = "Average Price of Product", x = "Store", y = "Average Price") 
+```
+
+
+
+
+ ### *Part B*
+ 
+*How many stores sell each product?*
+
+All stores typically sell commontype products like milk, eggs, and salt. There are products all consumers usually need and may explain why they can be found throughout all stores. Most, but not all, stores tend to sell mainstream items such as Granny Smith Apples and a 12 pack of Coke. In our figure we can see that not all stores sell items if they are specialty items like Lucky Charms or El Miagros Tortilla Chips. These items tned to be brand specific and can be found only at certain stores. The data indicates that there may be a difference in the type of products stores carry. 
+ 
+```{r echo = FALSE, mesage = FALSE, include = FALSE}
+
+# Data Wrangling by Product to find Sum
+grocProduct <- Groceries %>% 
+  group_by(Product) %>% 
+  summarize(count = n())
+
+```
+
+```{r echo = FALSE}
+# Graph of Distribution of Product Amount
+ggplot(grocProduct, aes(x = reorder(Product, count), y = count)) +
+  geom_col(fill = "darkslategray4") +
+  coord_flip() +
+  labs(title = "Availability of Product in Stores", 
+       x = "Product", y = "Number of stores selling that product ") 
+
+```
+ 
+ 
+ 
+### *Part C*
+
+*Price versus Product and the Type of store*
+
+[Note: Baseline is Coke and Grocery Store]
+
+Compared with ordinary grocery stores (like Albertsons, HEB, or Krogers), convenience stores charge somewhere between 41 cents and 92 cents dollars more for the same product.
+
+
+```{r echo = FALSE, mesage = FALSE, include = FALSE}
+
+# Convert 'Type' to a factor
+Groceries$Type <- factor(Groceries$Type)
+# Relevel the 'Type' variable with 'Grocery' as the reference category
+Groceries$Type <- relevel(Groceries$Type, ref = "Grocery")
+
+# Fit the linear regression model with 'Grocery' as the reference category for 'Type'
+lmStoreType <- lm(Price ~ Product + Type, data = Groceries)
+get_regression_table(lmStoreType)
+
+```
+
+
+
+
+
+### *Part D*
+
+[Note: Baseline is Coke and Albertsons]
+
+Kroger Fresh Fares and Walmart charges 0.26	cents and .35 respectively less than Albertsons for the same product.
+
+Whole Foods and Wheatsville Food Co-Op charges 1 dollar and .94 respectively more than Albertsons for the same product.
+
+```{r echo = FALSE, mesage = FALSE, include = FALSE}
+
+# Fit the linear regression model
+lmStore <- lm(Price ~ Product + Store, data=Groceries)
+regressTable <- get_regression_table(lmStore)
+print(regressTable)
+
+```
+
+### *Part E*
+
+[Note: Baseline is Coke and H-E-B]
+Upon inspecting the coefficients, Central Market charges a similar amount to H-E-B for the same product.
+Central Market charges 0.07	cents more than H-E-B for the same product. [CI: (-.25, .40)]
+
+In the larger context, our figure depicts that the HEB/Central Market difference is not that big as compared to differences among other stores.
+
+```{r echo = FALSE, mesage = FALSE, include = FALSE}
+
+# Convert 'Store' to a factor
+Groceries$Store <- factor(Groceries$Store)
+# Relevel the 'Store' variable with 'H-E-B' as the reference category
+Groceries$Store <- relevel(Groceries$Store, ref = "H-E-B ")
+
+# Fit the linear regression model
+lmStore <- lm(Price ~ Product + Store, data=Groceries)
+regressTable <- get_regression_table(lmStore)
+
+
+```
+
+```{r echo = FALSE, mesage = FALSE, include = FALSE}
+
+# Convert 'Store' to a factor
+Groceries$Store <- factor(Groceries$Store)
+# Relevel the 'Store' variable with 'Albertsons' as the reference category
+Groceries$Store <- relevel(Groceries$Store, ref = "Albertsons")
+
+# Fit the linear regression model
+lmStore <- lm(Price ~ Product + Store, data=Groceries)
+regressTable <- get_regression_table(lmStore)
+print(regressTable)
+```
+
+```{r echo = FALSE}
+
+# Keep Rows that contain "Store" only
+regressStore <- regressTable[grepl("^Store:", regressTable$term), ]
+
+# Graph Distribution of the Confidence Intervals of Store Estimates
+ggplot(regressStore, aes(x = reorder(term, estimate), y = estimate, ymin = lower_ci, ymax = upper_ci)) + 
+  labs(title = "Confidence Intervals of Store Estimates", 
+       x = "Store", y = "Confidence Interval") +
+  geom_pointrange() +
+  geom_errorbar() +
+  coord_flip()
+```
+
+
+### *Part F*
+ 
+A one-standard deviation increase in the income of a ZIP code seems to be associated with a -.04 standard-deviation change in the price that consumers in that ZIP code expect to pay for
+the same product. This shows that consumers in poorer ZIP codes seem to pay more for the same product, on average. (CI:[-0.08,  0.01])
+
+
+
+```{r echo = FALSE, mesage = FALSE, include = FALSE}
+
+# Create Variable that displays Income in terms of 10k multiples
+grocIncome <- Groceries %>% 
+  mutate(Income10K = round(Income / 10000), 1)
+
+# Fit the linear regression model
+lmIncome <- lm(Price ~ Product + Income10K, data=grocIncome)
+get_regression_table(lmIncome)
+standardize_parameters(lmIncome)
+
+```
+
